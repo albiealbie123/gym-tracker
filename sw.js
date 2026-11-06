@@ -1,5 +1,5 @@
 /* Gym Tracker service worker: lets the installed app open and work offline at the gym. */
-const VERSION = 'gym-v1794005920566';
+const VERSION = 'gym-v1794006005540';
 const FONTS = 'gym-fonts';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
 
