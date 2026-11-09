@@ -141,6 +141,15 @@ main { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 
 .stat b { display: block; font-family: var(--f-display); font-size: 30px; line-height: 1; font-weight: 800; }
 .stat span { font-size: 13px; color: var(--muted); }
 
+/* week strip */
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wd { display: grid; justify-items: center; gap: 2px; padding: 8px 0 6px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--muted); }
+.wd b { font-family: var(--f-display); font-weight: 800; font-size: 24px; line-height: 1; color: var(--ink); }
+.wd i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; color: var(--good); }
+.wd.off b { color: var(--muted); font-weight: 600; }
+.wd.today { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.wd.today span { color: var(--accent); }
+
 /* ---------- plan ---------- */
 .plan-head { display: flex; gap: 14px; align-items: center; }
 .plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: ex; }
@@ -364,7 +373,7 @@ textarea.input { min-height: 84px; resize: vertical; }
     egym_biceps_curl: { name: 'EGYM Biceps Curl', basis: 'kg', inc: 5, rest: 105, muscle: 'Biceps', setup: 'Your current biceps choice.' },
     preacher_curl_new_variant: { name: 'Preacher Curl', basis: 'kg', inc: 2.5, rest: 105, muscle: 'Biceps', setup: 'Tracked separately from the EGYM curl.' },
     b3_back_extension: { name: 'B3 Back Extension', basis: 'kg', inc: 4.5, rest: 105, muscle: 'Lower back', setup: 'Back-extension machine: lower-back work.' },
-    straight_arm_cable_pulldown_legacy: { name: 'Straight-Arm Cable Pulldown', basis: 'kg', inc: 2.3, rest: 105, muscle: 'Lats', setup: 'From your older split.', legacy: true },
+    straight_arm_cable_pulldown_legacy: { name: 'Straight-Arm Cable Pulldown', basis: 'kg', inc: 2.3, rest: 90, muscle: 'Lats', setup: 'Arms almost straight, pull the bar down to your thighs. Lats only, no biceps.' },
     one_arm_cable_curl_legacy: { name: 'One-Arm Cable Curl', basis: 'kg per arm', inc: 2.3, rest: 90, muscle: 'Biceps', setup: 'From your older split.', legacy: true }
   };
 
@@ -372,34 +381,61 @@ textarea.input { min-height: 84px; resize: vertical; }
 
   function ex(v, sets, lo, hi, rir, alts) { return { v, sets, lo, hi, rir, alts: alts || [] }; }
 
+  // 5-day V-taper split (from 9 Nov 2026): back, side delts and arms 3x a week; legs and chest twice.
   function defaultProgram() {
     return {
-      version: 1,
-      name: 'A/B split (from handover, 6 Nov 2026)',
+      version: 2,
+      id: 'vtaper5',
+      name: '5-day V-taper split (9 Nov 2026)',
+      order: ['D1', 'D2', 'D3', 'D4', 'D5'],
+      dayInfo: {
+        D1: { name: 'Upper 1', focus: 'Back first', tone: 'upper' },
+        D2: { name: 'Lower 1', focus: 'Legs & abs', tone: 'lower' },
+        D3: { name: 'Upper 2', focus: 'Shoulders & arms first', tone: 'upper' },
+        D4: { name: 'Lower 2', focus: 'Legs, glutes & abs', tone: 'lower' },
+        D5: { name: 'V-taper', focus: 'Lats, delts & arms', tone: 'upper' }
+      },
+      // usual week, indexed like Date.getDay(): Sun, Mon … Sat (null = rest)
+      schedule: [null, 'D1', 'D2', null, 'D3', 'D4', 'D5'],
       days: {
-        A: [
+        D1: [
+          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
+          ex('iso_lateral_row', 3, 8, 12, [2, 1, 1]),
           ex('d1_incline_usual', 3, 8, 12, [2, 1, 1], ['incline_dumbbell_press_new_variant']),
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant']),
+          ex('overhead_cable_triceps', 2, 10, 15, [2, 1])
+        ],
+        D2: [
           ex('v_squat_usual', 3, 8, 12, [2, 2, 1]),
           ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
-          ex('egym_chest_press', 2, 8, 12, [2, 1], ['iso_lateral_bench', 'flat_dumbbell_press_new_variant']),
-          ex('booty_builder_banded', 2, 8, 12, [2, 1]),
-          ex('overhead_cable_triceps', 3, 10, 15, [2, 1, 1]),
           ex('leg_press_calf', 3, 10, 15, [2, 1, 1], ['v_squat_calf', 'standing_calf_raise_new_variant']),
-          ex('cable_lateral_usual', 3, 10, 15, [2, 1, 1]),
           ex('hip_adduction_usual', 2, 10, 15, [2, 1]),
           ex('hammer_strength_abs', 2, 10, 15, [2, 1])
         ],
-        B: [
-          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
-          ex('iso_lateral_row', 3, 8, 12, [2, 1, 1]),
-          ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
+        D3: [
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('egym_chest_press', 3, 8, 12, [2, 1, 1], ['iso_lateral_bench', 'flat_dumbbell_press_new_variant']),
+          ex('straight_arm_cable_pulldown_legacy', 3, 10, 15, [2, 1, 1]),
+          ex('rear_delt_usual', 2, 8, 12, [2, 1]),
+          ex('overhead_cable_triceps', 3, 10, 15, [2, 1, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant'])
+        ],
+        D4: [
           ex('leg_extension_usual', 2, 10, 15, [2, 1]),
-          ex('rear_delt_usual', 3, 8, 12, [2, 1, 1]),
-          ex('egym_biceps_curl', 3, 8, 12, [2, 1, 1], ['preacher_curl_new_variant']),
-          ex('cable_lateral_usual', 2, 10, 15, [2, 1]),
+          ex('booty_builder_banded', 2, 8, 12, [2, 1]),
+          ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
           ex('b3_back_extension', 2, 10, 15, [2, 2]),
           ex('hip_abduction_usual', 2, 10, 15, [2, 1]),
           ex('hammer_strength_abs', 2, 10, 15, [2, 1])
+        ],
+        D5: [
+          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
+          ex('iso_lateral_row', 2, 8, 12, [2, 1]),
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('rear_delt_usual', 2, 8, 12, [2, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant']),
+          ex('overhead_cable_triceps', 2, 10, 15, [2, 1])
         ]
       },
       overrides: {},   // per-exercise edits: { inc, rest, setup, name, basis }
@@ -437,6 +473,19 @@ textarea.input { min-height: 84px; resize: vertical; }
   }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+  // ---------- program days ----------
+  function dayOrder(program) { return (program && program.order && program.order.length) ? program.order.slice() : Object.keys((program && program.days) || {}); }
+  function dayNumber(kind, program) { const i = dayOrder(program).indexOf(kind); return i >= 0 ? i + 1 : null; }
+  function dayTitle(kind, program, short) {
+    if (kind === 'extra') return 'Extra session';
+    const n = dayNumber(kind, program);
+    const inf = program && program.dayInfo && program.dayInfo[kind];
+    if (n && inf) return short ? 'Day ' + n : 'Day ' + n + ' · ' + inf.name;
+    return 'Workout ' + kind;
+  }
+  function dayTone(kind, program) { const inf = program && program.dayInfo && program.dayInfo[kind]; return inf ? inf.tone : (kind === 'B' ? 'lower' : 'upper'); }
+  function dayMark(kind, program) { const n = dayNumber(kind, program); if (n) return String(n); if (kind === 'extra') return '+'; return kind === 'A' || kind === 'B' ? kind : 'P'; }
+
   function variantInfo(id, program) {
     const p = program || {};
     const base = VARIANTS[id] || (p.custom || {})[id] || { name: id.replace(/_/g, ' '), basis: 'kg', inc: 2.5, rest: 105, muscle: '', setup: '' };
@@ -466,14 +515,19 @@ textarea.input { min-height: 84px; resize: vertical; }
     return out;
   }
 
-  function lastRegular(sessions) {
-    const regs = liveSessions(sessions).filter((s) => s.kind === 'A' || s.kind === 'B');
+  /** Latest regular (non-extra) workout: a day of the current program, or an older A/B session. */
+  function lastRegular(sessions, program) {
+    const order = dayOrder(program || defaultProgram());
+    const regs = liveSessions(sessions).filter((s) => order.indexOf(s.kind) >= 0 || s.kind === 'A' || s.kind === 'B');
     return regs[regs.length - 1] || null;
   }
-  function suggestNext(sessions) {
-    const l = lastRegular(sessions);
-    if (!l) return 'A';
-    return l.kind === 'A' ? 'B' : 'A';
+  /** Next day in the rotation: the day after the last one done; Day 1 when coming from another program. */
+  function suggestNext(sessions, program) {
+    const order = dayOrder(program || defaultProgram());
+    const done = liveSessions(sessions).filter((s) => order.indexOf(s.kind) >= 0);
+    const l = done[done.length - 1];
+    if (!l) return order[0];
+    return order[(order.indexOf(l.kind) + 1) % order.length];
   }
 
   // ---------- progression engine ----------
@@ -680,7 +734,7 @@ textarea.input { min-height: 84px; resize: vertical; }
       else if (e.logged.length < e.sets) missing.push({ v: e.v, sets: e.sets - e.logged.length, why: e.logged.length ? 'fewer sets' : 'not done' });
     });
     return {
-      id: w.id, kind: w.kind, label: w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind, date: w.date,
+      id: w.id, kind: w.kind, label: dayTitle(w.kind, program), date: w.date,
       startedAt: w.startedAt, finishedAt: Date.now(), programVersion: w.programVersion,
       status: missing.length ? 'partial' : 'complete', plannedSets: planned, doneSets: done, missing,
       source: 'app', exercises
@@ -710,7 +764,7 @@ textarea.input { min-height: 84px; resize: vertical; }
   }
 
   const api = {
-    VARIANTS, COMPOUND_REST, defaultProgram, variantInfo, allVariantIds, r1, fmtW, fmtReps, isoDate, parseISO, daysBetween,
+    VARIANTS, COMPOUND_REST, defaultProgram, dayOrder, dayNumber, dayTitle, dayTone, dayMark, variantInfo, allVariantIds, r1, fmtW, fmtReps, isoDate, parseISO, daysBetween,
     fmtDate, relDay, clone, liveSessions, loggedSets, countSets, exposures, lastRegular, suggestNext, effReps,
     backoffAmount, lastString, recommend, adjustAfterSet, buildWorkout, makeExercise, refreshRecs, plannedCount, doneCount,
     isExDone, nextPendingIndex, finishWorkout, sessionSummary, bestInHistory, estimateMinutes, uid
@@ -777,7 +831,14 @@ textarea.input { min-height: 84px; resize: vertical; }
 
   const DEFAULT_SETTINGS = { theme: 'auto', restTimer: true, beep: true, keepAwake: true, lastBackupAt: null };
   function settings() { return Object.assign({}, DEFAULT_SETTINGS, store.docs.settings || {}); }
-  function program() { const p = store.docs.program; return p && p.days ? p : L.defaultProgram(); }
+  function program() {
+    const p = store.docs.program;
+    if (p && p.days && p.order) return p;
+    // older A/B program (or none saved): use the current default plan, keeping any machine settings you changed
+    const d = L.defaultProgram();
+    if (p) { d.overrides = p.overrides || {}; d.custom = p.custom || {}; }
+    return d;
+  }
   function sessions() { return Object.keys(store.docs).filter((k) => k.indexOf('s-') === 0).map((k) => store.docs[k]).filter((s) => s && !s.deleted && s.exercises); }
   function active() { const a = store.docs.active; return a && a.workout ? a.workout : null; }
   function saveActive(w) { put('active', { workout: w }); }
@@ -940,9 +1001,14 @@ textarea.input { min-height: 84px; resize: vertical; }
   function rirAt(e, i) { if (!e.rir || !e.rir.length) return null; return e.rir[Math.min(i, e.rir.length - 1)]; }
   function rirLabel(v) { return v == null ? '—' : v >= 4 ? '4+' : String(v); }
   function basisTag(b) { return b && b !== 'kg' ? '<span class="basis">' + esc(b) + '</span>' : ''; }
-  function kindName(s) { return s.label || (s.kind === 'extra' ? 'Extra session' : 'Workout ' + s.kind); }
+  function kindName(s) { return s.label || L.dayTitle(s.kind, program()); }
+  function plateCls(kind) {
+    if (kind === 'extra' || kind === 'legacy') return 'k-' + kind;
+    return L.dayTone(kind, program()) === 'lower' ? 'k-B' : 'k-A';
+  }
   function plateChar(s) {
     if (s.kind === 'A' || s.kind === 'B') return s.kind;
+    const n = L.dayNumber(s.kind, program()); if (n) return String(n);
     if (s.kind === 'extra') return '+';
     if (/Workout A/.test(s.label || '')) return 'A';
     if (/Workout B/.test(s.label || '')) return 'B';
@@ -1051,61 +1117,98 @@ textarea.input { min-height: 84px; resize: vertical; }
   const backupName = () => 'gym-tracker-backup-' + L.isoDate() + '.json';
 
   // ---------- Home ----------
+  function viewWeek(prog, ss, today) {
+    const sched = prog.schedule;
+    if (!sched || sched.length !== 7) return '';
+    const t = L.parseISO(today);
+    const monday = new Date(t); monday.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    const cells = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((nm, i) => {
+      const d = new Date(monday); d.setDate(monday.getDate() + i);
+      const iso = L.isoDate(d); const k = sched[d.getDay()];
+      const trained = ss.some((x) => x.date === iso);
+      const cls = (iso === today ? ' today' : '') + (k ? '' : ' off') + (trained ? ' done' : '');
+      const label = nm + ': ' + (k ? L.dayTitle(k, prog) : 'rest') + (trained ? ', trained' : '');
+      return '<div class="wd' + cls + '" aria-label="' + esc(label) + '"><span>' + nm + '</span><b>' + (k ? L.dayNumber(k, prog) : '–') + '</b><i>' + (trained ? '✓' : '') + '</i></div>';
+    }).join('');
+    return '<section><p class="eyebrow" style="margin-bottom:6px">Your week</p><div class="week">' + cells + '</div></section>';
+  }
+
   function viewHome() {
     const ss = sessions(); const prog = program(); const today = L.isoDate();
-    const last = L.lastRegular(ss); const next = L.suggestNext(ss);
+    const order = L.dayOrder(prog);
+    const last = L.lastRegular(ss, prog); const next = L.suggestNext(ss, prog);
+    const sched = prog.schedule || [];
+    const restToday = sched.length === 7 && !sched[L.parseISO(today).getDay()];
+    const doneToday = ss.some((x) => x.date === today && x.kind !== 'extra');
     let lastHtml;
     if (last) {
       const miss = missingSets(last);
-      lastHtml = '<article class="card last"><span class="plate lg k-' + last.kind + '">' + last.kind + '</span><div class="grow">' +
-        '<p class="eyebrow">Last workout</p><p class="big">Workout ' + last.kind + ' · ' + L.fmtDate(last.date) + '</p>' +
+      lastHtml = '<article class="card last"><span class="plate lg ' + plateCls(last.kind) + '">' + plateChar(last) + '</span><div class="grow">' +
+        '<p class="eyebrow">Last workout</p><p class="big">' + esc(kindName(last)) + ' · ' + L.fmtDate(last.date) + '</p>' +
         '<p class="muted">' + cap(L.relDay(last.date, today)) + ' · ' + L.countSets(last) + ' sets' + (miss ? ' · ' + miss + ' planned sets not done' : '') + '</p></div></article>';
     } else if ((store.sync === 'connecting' || (store.db && !store.loadedRemote)) && !ss.length) {
       lastHtml = '<article class="card"><p class="h3">Loading your workouts…</p><p class="muted small">Getting your history from your Claude account.</p></article>';
     } else if (PWA) {
       lastHtml = '<article class="card" style="display:grid;gap:10px"><p class="h3">Bring your workout history</p>' +
-        '<p class="small muted">Open your history file (gym-tracker-history.json) or any backup. Your last workout and all the suggested weights come from it. Or just pick A or B below to start fresh.</p>' +
+        '<p class="small muted">Open your history file (gym-tracker-history.json) or any backup. Your last workout and all the suggested weights come from it. Or just pick a day below to start fresh.</p>' +
         '<label class="btn primary block" for="imp-file-home">Choose history file</label><input id="imp-file-home" type="file" accept=".json,.txt,application/json,text/plain" hidden></article>';
     } else {
-      lastHtml = '<article class="card"><p class="h3">No workouts yet</p><p class="muted small">Pick A or B below to start your first one.</p></article>';
+      lastHtml = '<article class="card"><p class="h3">No workouts yet</p><p class="muted small">Pick a day below to start your first one.</p></article>';
     }
-    const extras = ss.filter((s) => s.kind === 'extra' && last && s.date >= last.date && (s.finishedAt || 0) > (last.finishedAt || 0));
-    const extraNote = extras.length ? '<p class="note">Extra session on ' + L.fmtDate(extras[extras.length - 1].date) + '. Extra sessions don\'t change the A/B order.</p>' : '';
+    const extras = ss.filter((x) => x.kind === 'extra' && last && x.date >= last.date && (x.finishedAt || 0) > (last.finishedAt || 0));
+    const extraNote = extras.length ? '<p class="note">Extra session on ' + L.fmtDate(extras[extras.length - 1].date) + '. Extra sessions don\'t change which day is next.</p>' : '';
 
-    const choice = (k) => {
+    const meta = (k) => {
       const day = prog.days[k] || [];
       const sets = day.reduce((n, e) => n + e.sets, 0);
       const mins = L.estimateMinutes(L.buildWorkout(k, prog, ss, today));
-      const isNext = k === next;
-      return '<button class="choice' + (isNext ? ' is-next' : '') + '" data-act="choose" data-kind="' + k + '">' +
-        '<span class="plate lg k-' + k + '">' + k + '</span><span class="choice-body">' +
-        '<span class="choice-title">Workout ' + k + (isNext ? ' <span class="tag accent">Up next</span>' : '') + '</span>' +
-        '<span class="choice-meta">' + day.length + ' exercises · ' + sets + ' sets · about ' + mins + ' min</span>' +
-        '<span class="choice-list">' + day.map((e) => esc(info(e.v, prog).name)).join(' · ') + '</span></span></button>';
+      return { day, sets, mins };
     };
+    const big = (k) => {
+      const m = meta(k); const inf = (prog.dayInfo || {})[k] || {};
+      return '<button class="choice is-next" data-act="choose" data-kind="' + k + '">' +
+        '<span class="plate lg ' + plateCls(k) + '">' + L.dayNumber(k, prog) + '</span><span class="choice-body">' +
+        '<span class="choice-title">' + esc(L.dayTitle(k, prog, true)) + ' <span class="tag accent">Up next</span></span>' +
+        '<span class="choice-meta">' + esc(inf.name || '') + (inf.focus ? ' · ' + esc(inf.focus) : '') + '</span>' +
+        '<span class="choice-meta muted" style="font-weight:400">' + m.day.length + ' exercises · ' + m.sets + ' sets · about ' + m.mins + ' min</span>' +
+        '<span class="choice-list">' + m.day.map((e) => esc(info(e.v, prog).name)).join(' · ') + '</span></span></button>';
+    };
+    const small = (k) => {
+      const m = meta(k); const inf = (prog.dayInfo || {})[k] || {};
+      return '<button class="item" data-act="choose" data-kind="' + k + '"><span class="plate sm ' + plateCls(k) + '">' + L.dayNumber(k, prog) + '</span>' +
+        '<div class="grow"><div class="t">' + esc(L.dayTitle(k, prog)) + '</div><div class="s">' + esc(inf.focus || '') + ' · ' + m.sets + ' sets · ~' + m.mins + ' min</div></div><span class="chev" aria-hidden="true">›</span></button>';
+    };
+    const ni = order.indexOf(next);
+    const others = order.slice(ni + 1).concat(order.slice(0, ni));
 
     const since7 = L.isoDate(new Date(Date.now() - 6 * 86400000));
-    const recent = ss.filter((s) => s.date >= since7);
+    const recent = ss.filter((x) => x.date >= since7);
     const daysSince = last ? L.daysBetween(last.date, today) : null;
-    const dateStr = L.fmtDate(today, true);
+    let h1, sub = '';
+    if (!last) h1 = 'Let\'s train';
+    else if (doneToday) { h1 = 'Done for today'; sub = 'Next up: ' + L.dayTitle(next, prog) + '.'; }
+    else if (restToday) { h1 = 'Rest day'; sub = 'Today is a planned rest day: recovery is when muscle grows. Next up: ' + L.dayTitle(next, prog) + '.'; }
+    else h1 = L.dayTitle(next, prog, true) + ' is up';
 
     return '<section class="screen home">' +
-      '<div><p class="eyebrow">' + dateStr + '</p><h1 class="h-display">' + (last ? 'Workout ' + next + ' is up' : 'Let\'s train') + '</h1></div>' +
+      '<div><p class="eyebrow">' + L.fmtDate(today, true) + '</p><h1 class="h-display">' + h1 + '</h1>' + (sub ? '<p class="muted" style="margin-top:6px">' + esc(sub) + '</p>' : '') + '</div>' +
+      viewWeek(prog, ss, today) +
       lastHtml + extraNote + installCard() +
       '<h2 class="section-title">Choose today\'s workout</h2>' +
-      '<div class="choices">' + choice('A') + choice('B') + '</div>' +
-      '<button class="linkish" data-act="choose" data-kind="extra">+ Extra session (doesn\'t change A/B order)</button>' +
+      '<div class="choices">' + big(next) + '</div>' +
+      '<div class="list">' + others.map(small).join('') + '</div>' +
+      '<button class="linkish" data-act="choose" data-kind="extra">+ Extra session (doesn\'t change which day is next)</button>' +
       '<div class="stats">' +
       '<div class="stat"><b>' + recent.length + '</b><span>sessions, last 7 days</span></div>' +
-      '<div class="stat"><b>' + recent.reduce((n, s) => n + L.countSets(s), 0) + '</b><span>sets, last 7 days</span></div>' +
-      '<div class="stat"><b>' + (daysSince == null ? '—' : daysSince) + '</b><span>days since last A/B</span></div>' +
+      '<div class="stat"><b>' + recent.reduce((n, x) => n + L.countSets(x), 0) + '</b><span>sets, last 7 days</span></div>' +
+      '<div class="stat"><b>' + (daysSince == null ? '—' : daysSince) + '</b><span>days since last workout</span></div>' +
       '</div></section>';
   }
 
   // ---------- Plan (today's workout before starting) ----------
   function viewPlan() {
     const w = ui.plan; const prog = program();
-    const title = w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind;
+    const title = L.dayTitle(w.kind, prog);
     const items = w.exercises.map((e, i) => {
       const inf = info(e.v, prog);
       const skipped = e.status === 'skipped';
@@ -1128,13 +1231,13 @@ textarea.input { min-height: 84px; resize: vertical; }
     const pending = L.nextPendingIndex(w, 0) >= 0;
     return '<section class="screen plan">' +
       '<button class="back" data-act="plan-back">‹ Back</button>' +
-      '<header class="plan-head"><span class="plate lg k-' + w.kind + '">' + (w.kind === 'extra' ? '+' : w.kind) + '</span><div class="grow">' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(w.kind) + '">' + L.dayMark(w.kind, prog) + '</span><div class="grow">' +
       '<h1 class="h-display">' + title + '</h1><p class="muted">Today · ' + L.fmtDate(w.date) + ' · ' + w.exercises.length + ' exercises · ' + L.plannedCount(w) + ' sets' + (w.exercises.length ? ' · about ' + L.estimateMinutes(w) + ' min' : '') + '</p></div></header>' +
-      (w.kind === 'extra' ? '<p class="note">Extra sessions are logged like any other, but they don\'t change whether A or B is next.</p>'
+      (w.kind === 'extra' ? '<p class="note">Extra sessions are logged like any other, but they don\'t change which day is next.</p>'
         : '<p class="muted small">Weights come from your last sessions on the same machine. You can reorder, swap or skip now, or change things as you go.</p>') +
       (items ? '<ol class="plan-list">' + items + '</ol>' : '') +
       '<button class="btn block" data-act="plan-add">+ Add exercise</button>' +
-      '<div class="sticky-cta"><button class="btn primary xl" data-act="start"' + (pending ? '' : ' disabled') + '>Start ' + title + '</button></div>' +
+      '<div class="sticky-cta"><button class="btn primary xl" data-act="start"' + (pending ? '' : ' disabled') + '>Start ' + esc(L.dayTitle(w.kind, prog, true)) + '</button></div>' +
       '</section>';
   }
 
@@ -1147,7 +1250,7 @@ textarea.input { min-height: 84px; resize: vertical; }
     }
     const planned = L.plannedCount(w), done = L.doneCount(w);
     const pct = planned ? Math.min(100, Math.round((done / planned) * 100)) : 0;
-    const title = w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind;
+    const title = L.dayTitle(w.kind, program());
     const top = '<div><div class="wk-progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + planned + '" aria-valuenow="' + done + '"><i style="width:' + pct + '%"></i></div>' +
       '<div class="wk-meta"><span>' + title + ' · ' + L.fmtDate(w.date) + '</span><span>' + done + ' of ' + planned + ' sets</span></div></div>';
     const rest = '<div id="rest" class="rest" hidden><div class="rest-t"><span id="rest-time">0:00</span><small id="rest-lbl">Rest</small></div>' +
@@ -1216,7 +1319,7 @@ textarea.input { min-height: 84px; resize: vertical; }
   }
 
   function allDoneCard(w, planned, done) {
-    return '<article class="setcard alldone"><span class="plate lg k-' + (w.kind === 'B' ? 'B' : 'A') + '">✓</span>' +
+    return '<article class="setcard alldone"><span class="plate lg ' + plateCls(w.kind) + '">✓</span>' +
       '<h2 class="h2">All sets done</h2><p class="muted">' + done + ' of ' + planned + ' planned sets logged. Tap Finish to save this workout.</p>' +
       '<button class="btn primary xl" data-act="finish">Finish workout</button></article>';
   }
@@ -1268,7 +1371,7 @@ textarea.input { min-height: 84px; resize: vertical; }
     });
     const miss = (s.missing || []).map((m) => '<li>' + m.sets + ' × ' + esc(info(m.v, prog).name) + ' (' + esc(m.why) + ')</li>').join('');
     return '<section class="screen">' +
-      '<header class="plan-head"><span class="plate lg k-' + s.kind + '">' + plateChar(s) + '</span><div class="grow"><p class="eyebrow">Saved</p><h1 class="h-display">' + esc(kindName(s)) + ' done</h1>' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(s.kind) + '">' + plateChar(s) + '</span><div class="grow"><p class="eyebrow">Saved</p><h1 class="h-display">' + esc(kindName(s)) + ' done</h1>' +
       '<p class="muted">' + L.fmtDate(s.date, true) + (mins != null ? ' · ' + mins + ' min' : '') + '</p></div></header>' +
       '<div class="stats"><div class="stat"><b>' + L.countSets(s) + '</b><span>sets logged</span></div><div class="stat"><b>' + (s.plannedSets || '—') + '</b><span>sets planned</span></div><div class="stat"><b>' + s.exercises.filter((e) => L.loggedSets(e).length).length + '</b><span>exercises</span></div></div>' +
       (ups.length ? '<section class="card"><h2 class="h3">Going up next time</h2><ul class="small" style="margin:8px 0 0;padding-left:20px">' + ups.join('') + '</ul></section>' : '') +
@@ -1288,7 +1391,7 @@ textarea.input { min-height: 84px; resize: vertical; }
       const m = d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
       const head = m !== lastMonth ? '<p class="month">' + m + '</p>' : '';
       lastMonth = m;
-      return head + '<button class="item" data-act="open-session" data-id="' + esc(s.id) + '"><span class="plate sm k-' + (s.kind === 'A' || s.kind === 'B' ? s.kind : s.kind) + '">' + plateChar(s) + '</span>' +
+      return head + '<button class="item" data-act="open-session" data-id="' + esc(s.id) + '"><span class="plate sm ' + plateCls(s.kind) + '">' + plateChar(s) + '</span>' +
         '<div class="grow"><div class="t">' + esc(kindName(s)) + '</div><div class="s">' + L.fmtDate(s.date) + ' · ' + L.countSets(s) + ' sets' + (s.imported ? ' · imported' : '') + '</div></div>' + statusTag(s) + '<span class="chev" aria-hidden="true">›</span></button>';
     }).join('');
     return '<section class="screen"><div><h1 class="h-display">History</h1><p class="muted">' + ss.length + ' sessions · ' + total + ' sets since ' + L.fmtDate(ss[ss.length - 1].date) + '</p></div>' +
@@ -1317,7 +1420,7 @@ textarea.input { min-height: 84px; resize: vertical; }
     }).join('');
     return '<section class="screen">' +
       '<button class="back" data-act="session-back">‹ History</button>' +
-      '<header class="plan-head"><span class="plate lg k-' + s.kind + '">' + plateChar(s) + '</span><div class="grow"><h1 class="h2">' + esc(kindName(s)) + '</h1>' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(s.kind) + '">' + plateChar(s) + '</span><div class="grow"><h1 class="h2">' + esc(kindName(s)) + '</h1>' +
       '<p class="muted">' + L.fmtDate(s.date, true) + ' · ' + L.countSets(s) + (s.plannedSets ? ' of ' + s.plannedSets : '') + ' sets' + (mins != null ? ' · ' + mins + ' min' : '') + '</p></div>' + statusTag(s) + '</header>' +
       (s.imported ? '<p class="small muted">Imported from your ChatGPT handover. Actual RIR was never reported for these sets, so it stays empty.</p>' : '') +
       notes +
@@ -1340,17 +1443,18 @@ textarea.input { min-height: 84px; resize: vertical; }
           '<div class="s">' + p.sets + ' × ' + p.lo + '–' + p.hi + ' · next ' + loads + ' kg</div></div>' + trendTag(r.trend) + '<span class="chev" aria-hidden="true">›</span></button>';
       }).join('');
       const sets = (prog.days[d] || []).reduce((n, e) => n + e.sets, 0);
-      return '<div class="ex-block-h"><h2 class="section-title">Workout ' + d + ' · ' + sets + ' sets</h2><button class="linkish" data-act="edit-day" data-kind="' + d + '">Edit</button></div><div class="list">' + rows + '</div>';
+      return '<div class="ex-block-h"><h2 class="section-title">' + esc(L.dayTitle(d, prog)) + ' · ' + sets + ' sets</h2><button class="linkish" data-act="edit-day" data-kind="' + d + '">Edit</button></div><div class="list">' + rows + '</div>';
     };
-    const inProg = new Set([].concat(prog.days.A || [], prog.days.B || []).map((p) => p.v));
+    const order = L.dayOrder(prog);
+    const inProg = new Set([].concat.apply([], order.map((d) => prog.days[d] || [])).map((p) => p.v));
     const others = L.allVariantIds(prog).filter((v) => !inProg.has(v)).map((v) => {
       const inf = info(v, prog); const ex = L.exposures(ss, v); const last = ex[ex.length - 1];
       return { v, inf, last };
     }).sort((a, b) => (b.last ? 1 : 0) - (a.last ? 1 : 0) || a.inf.name.localeCompare(b.inf.name));
     const otherRows = others.map((o) => '<button class="item" data-act="open-ex" data-v="' + esc(o.v) + '"><div class="grow"><div class="t">' + esc(o.inf.name) + basisTag(o.inf.basis) + '</div>' +
       '<div class="s">' + (o.last ? 'Last: ' + esc(L.lastString(o.last.sets)) + ' kg · ' + L.fmtDate(o.last.date) : 'No sets logged yet') + (o.inf.legacy ? ' · older split' : '') + '</div></div><span class="chev" aria-hidden="true">›</span></button>').join('');
-    return '<section class="screen"><div><h1 class="h-display">Exercises</h1><p class="muted">Your A/B program with next weights. Tap an exercise for its history and settings.</p></div>' +
-      dayBlock('A') + dayBlock('B') +
+    return '<section class="screen"><div><h1 class="h-display">Exercises</h1><p class="muted">Your ' + order.length + '-day plan with next weights. Tap an exercise for its history and settings.</p></div>' +
+      order.map(dayBlock).join('') +
       '<h2 class="section-title">Alternatives &amp; others</h2><div class="list">' + otherRows + '</div></section>';
   }
 
@@ -1379,14 +1483,14 @@ textarea.input { min-height: 84px; resize: vertical; }
     const inf = info(v, prog);
     const exps = L.exposures(ss, v);
     const best = L.bestInHistory(ss, v);
-    const nextCards = ['A', 'B'].filter((d) => (prog.days[d] || []).some((p) => p.v === v)).map((d) => {
+    const nextCards = L.dayOrder(prog).filter((d) => (prog.days[d] || []).some((p) => p.v === v)).map((d) => {
       const p = prog.days[d].find((x) => x.v === v);
       const r = L.recommend(v, p, ss, prog);
-      return '<section class="card" style="display:grid;gap:6px"><div class="ex-block-h"><p class="eyebrow">Next Workout ' + d + '</p>' + trendTag(r.trend) + '</div>' +
+      return '<section class="card" style="display:grid;gap:6px"><div class="ex-block-h"><p class="eyebrow">Next ' + esc(L.dayTitle(d, prog)) + '</p>' + trendTag(r.trend) + '</div>' +
         '<p class="h2">' + r.loads.map((w) => (w == null ? '?' : fmtW(w))).join(' / ') + ' kg</p>' +
         '<p class="small">' + p.sets + ' sets × ' + p.lo + '–' + p.hi + ' reps · RIR ' + p.rir.map(rirLabel).join(' / ') + '</p><p class="why">' + esc(r.summary) + '</p></section>';
     }).join('');
-    const histRows = exps.slice().reverse().map((x) => '<div class="lset"><span class="n">' + L.fmtDate(x.date) + '</span><span class="v">' + esc(L.lastString(x.sets)) + ' kg</span><span class="x">' + (x.kind === 'A' || x.kind === 'B' ? x.kind : x.kind === 'extra' ? 'Extra' : 'Older') + '</span></div>').join('');
+    const histRows = exps.slice().reverse().map((x) => '<div class="lset"><span class="n">' + L.fmtDate(x.date) + '</span><span class="v">' + esc(L.lastString(x.sets)) + ' kg</span><span class="x">' + (x.kind === 'A' || x.kind === 'B' ? 'Old ' + x.kind : x.kind === 'extra' ? 'Extra' : L.dayNumber(x.kind, prog) ? 'Day ' + L.dayNumber(x.kind, prog) : 'Older') + '</span></div>').join('');
     const basisOpts = (BASES.indexOf(inf.basis) < 0 ? [inf.basis].concat(BASES) : BASES).map((b) => '<option' + (b === inf.basis ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
     return '<section class="screen">' +
       '<button class="back" data-act="ex-back">‹ Exercises</button>' +
@@ -1422,10 +1526,10 @@ textarea.input { min-height: 84px; resize: vertical; }
     }).join('');
     return '<section class="screen">' +
       '<button class="back" data-act="prog-back">‹ Exercises</button>' +
-      '<div><h1 class="h-display">Edit Workout ' + d + '</h1><p class="muted">' + list.length + ' exercises · ' + total + ' sets. Changes apply from your next workout; past workouts keep exactly what you did.</p></div>' +
+      '<div><h1 class="h-display">Edit ' + esc(L.dayTitle(d, draft)) + '</h1><p class="muted">' + list.length + ' exercises · ' + total + ' sets. Changes apply from your next workout; past workouts keep exactly what you did.</p></div>' +
       items +
       '<button class="btn block" data-act="prog-add">+ Add exercise</button>' +
-      '<div class="sticky-cta"><button class="btn primary xl" data-act="prog-save">Save Workout ' + d + '</button></div></section>';
+      '<div class="sticky-cta"><button class="btn primary xl" data-act="prog-save">Save ' + esc(L.dayTitle(d, draft, true)) + '</button></div></section>';
   }
 
   // ---------- Settings ----------
@@ -1529,7 +1633,7 @@ textarea.input { min-height: 84px; resize: vertical; }
 
   function planFor(v) {
     const prog = program();
-    const p = [].concat(prog.days.A || [], prog.days.B || []).find((x) => x.v === v);
+    const p = [].concat.apply([], L.dayOrder(prog).map((d) => prog.days[d] || [])).find((x) => x.v === v);
     return p ? { v, sets: p.sets, lo: p.lo, hi: p.hi, rir: p.rir.slice(), alts: (p.alts || []).slice() } : { v, sets: 2, lo: 10, hi: 15, rir: [2, 1], alts: [] };
   }
 
@@ -1875,7 +1979,7 @@ textarea.input { min-height: 84px; resize: vertical; }
       syncDraftFromInputs();
       const before = L.clone(program()); delete before.updatedAt; const after = L.clone(ui.progDraft); delete after.updatedAt;
       if (JSON.stringify(before) !== JSON.stringify(after)) {
-        openDialog('<h2 class="h2">Discard changes?</h2><p>Your edits to Workout ' + ui.progDay + ' haven\'t been saved.</p><div class="btn-row"><button class="btn primary" data-act="dlg-close">Keep editing</button><button class="btn danger" data-act="dlg-prog-discard">Discard</button></div>');
+        openDialog('<h2 class="h2">Discard changes?</h2><p>Your edits to ' + esc(L.dayTitle(ui.progDay, ui.progDraft)) + ' haven\'t been saved.</p><div class="btn-row"><button class="btn primary" data-act="dlg-close">Keep editing</button><button class="btn danger" data-act="dlg-prog-discard">Discard</button></div>');
         return;
       }
       ui.progDay = null; ui.progDraft = null; render();
@@ -1989,7 +2093,8 @@ textarea.input { min-height: 84px; resize: vertical; }
   loadLocal();
   if (PWA) {
     const go = new URLSearchParams(location.search).get('go');
-    if ((go === 'A' || go === 'B') && !active()) A.choose({ dataset: { kind: go } });
+    const goKind = go === 'next' ? L.suggestNext(sessions(), program()) : go;
+    if (goKind && L.dayOrder(program()).indexOf(goKind) >= 0 && !active()) A.choose({ dataset: { kind: goKind } });
     persistStorage().then(() => { if (ui.tab === 'settings' && !ui.dlg) render(); });
     if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
   }

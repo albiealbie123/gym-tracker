@@ -124,6 +124,15 @@ main { max-width: 560px; margin: 0 auto; padding: 16px 16px calc(var(--nav-h) + 
 .stat b { display: block; font-family: var(--f-display); font-size: 30px; line-height: 1; font-weight: 800; }
 .stat span { font-size: 13px; color: var(--muted); }
 
+/* week strip */
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wd { display: grid; justify-items: center; gap: 2px; padding: 8px 0 6px; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--muted); }
+.wd b { font-family: var(--f-display); font-weight: 800; font-size: 24px; line-height: 1; color: var(--ink); }
+.wd i { font-style: normal; font-size: 12px; line-height: 1; min-height: 12px; color: var(--good); }
+.wd.off b { color: var(--muted); font-weight: 600; }
+.wd.today { border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.wd.today span { color: var(--accent); }
+
 /* ---------- plan ---------- */
 .plan-head { display: flex; gap: 14px; align-items: center; }
 .plan-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: ex; }

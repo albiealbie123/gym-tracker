@@ -29,7 +29,7 @@
     egym_biceps_curl: { name: 'EGYM Biceps Curl', basis: 'kg', inc: 5, rest: 105, muscle: 'Biceps', setup: 'Your current biceps choice.' },
     preacher_curl_new_variant: { name: 'Preacher Curl', basis: 'kg', inc: 2.5, rest: 105, muscle: 'Biceps', setup: 'Tracked separately from the EGYM curl.' },
     b3_back_extension: { name: 'B3 Back Extension', basis: 'kg', inc: 4.5, rest: 105, muscle: 'Lower back', setup: 'Back-extension machine: lower-back work.' },
-    straight_arm_cable_pulldown_legacy: { name: 'Straight-Arm Cable Pulldown', basis: 'kg', inc: 2.3, rest: 105, muscle: 'Lats', setup: 'From your older split.', legacy: true },
+    straight_arm_cable_pulldown_legacy: { name: 'Straight-Arm Cable Pulldown', basis: 'kg', inc: 2.3, rest: 90, muscle: 'Lats', setup: 'Arms almost straight, pull the bar down to your thighs. Lats only, no biceps.' },
     one_arm_cable_curl_legacy: { name: 'One-Arm Cable Curl', basis: 'kg per arm', inc: 2.3, rest: 90, muscle: 'Biceps', setup: 'From your older split.', legacy: true }
   };
 
@@ -37,34 +37,61 @@
 
   function ex(v, sets, lo, hi, rir, alts) { return { v, sets, lo, hi, rir, alts: alts || [] }; }
 
+  // 5-day V-taper split (from 9 Nov 2026): back, side delts and arms 3x a week; legs and chest twice.
   function defaultProgram() {
     return {
-      version: 1,
-      name: 'A/B split (from handover, 6 Nov 2026)',
+      version: 2,
+      id: 'vtaper5',
+      name: '5-day V-taper split (9 Nov 2026)',
+      order: ['D1', 'D2', 'D3', 'D4', 'D5'],
+      dayInfo: {
+        D1: { name: 'Upper 1', focus: 'Back first', tone: 'upper' },
+        D2: { name: 'Lower 1', focus: 'Legs & abs', tone: 'lower' },
+        D3: { name: 'Upper 2', focus: 'Shoulders & arms first', tone: 'upper' },
+        D4: { name: 'Lower 2', focus: 'Legs, glutes & abs', tone: 'lower' },
+        D5: { name: 'V-taper', focus: 'Lats, delts & arms', tone: 'upper' }
+      },
+      // usual week, indexed like Date.getDay(): Sun, Mon … Sat (null = rest)
+      schedule: [null, 'D1', 'D2', null, 'D3', 'D4', 'D5'],
       days: {
-        A: [
+        D1: [
+          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
+          ex('iso_lateral_row', 3, 8, 12, [2, 1, 1]),
           ex('d1_incline_usual', 3, 8, 12, [2, 1, 1], ['incline_dumbbell_press_new_variant']),
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant']),
+          ex('overhead_cable_triceps', 2, 10, 15, [2, 1])
+        ],
+        D2: [
           ex('v_squat_usual', 3, 8, 12, [2, 2, 1]),
           ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
-          ex('egym_chest_press', 2, 8, 12, [2, 1], ['iso_lateral_bench', 'flat_dumbbell_press_new_variant']),
-          ex('booty_builder_banded', 2, 8, 12, [2, 1]),
-          ex('overhead_cable_triceps', 3, 10, 15, [2, 1, 1]),
           ex('leg_press_calf', 3, 10, 15, [2, 1, 1], ['v_squat_calf', 'standing_calf_raise_new_variant']),
-          ex('cable_lateral_usual', 3, 10, 15, [2, 1, 1]),
           ex('hip_adduction_usual', 2, 10, 15, [2, 1]),
           ex('hammer_strength_abs', 2, 10, 15, [2, 1])
         ],
-        B: [
-          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
-          ex('iso_lateral_row', 3, 8, 12, [2, 1, 1]),
-          ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
+        D3: [
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('egym_chest_press', 3, 8, 12, [2, 1, 1], ['iso_lateral_bench', 'flat_dumbbell_press_new_variant']),
+          ex('straight_arm_cable_pulldown_legacy', 3, 10, 15, [2, 1, 1]),
+          ex('rear_delt_usual', 2, 8, 12, [2, 1]),
+          ex('overhead_cable_triceps', 3, 10, 15, [2, 1, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant'])
+        ],
+        D4: [
           ex('leg_extension_usual', 2, 10, 15, [2, 1]),
-          ex('rear_delt_usual', 3, 8, 12, [2, 1, 1]),
-          ex('egym_biceps_curl', 3, 8, 12, [2, 1, 1], ['preacher_curl_new_variant']),
-          ex('cable_lateral_usual', 2, 10, 15, [2, 1]),
+          ex('booty_builder_banded', 2, 8, 12, [2, 1]),
+          ex('seated_leg_curl_usual', 2, 8, 12, [2, 1]),
           ex('b3_back_extension', 2, 10, 15, [2, 2]),
           ex('hip_abduction_usual', 2, 10, 15, [2, 1]),
           ex('hammer_strength_abs', 2, 10, 15, [2, 1])
+        ],
+        D5: [
+          ex('egym_pulldown', 3, 8, 12, [2, 1, 1]),
+          ex('iso_lateral_row', 2, 8, 12, [2, 1]),
+          ex('cable_lateral_usual', 4, 10, 15, [2, 1, 1, 1]),
+          ex('rear_delt_usual', 2, 8, 12, [2, 1]),
+          ex('egym_biceps_curl', 2, 8, 12, [2, 1], ['preacher_curl_new_variant']),
+          ex('overhead_cable_triceps', 2, 10, 15, [2, 1])
         ]
       },
       overrides: {},   // per-exercise edits: { inc, rest, setup, name, basis }
@@ -102,6 +129,19 @@
   }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+  // ---------- program days ----------
+  function dayOrder(program) { return (program && program.order && program.order.length) ? program.order.slice() : Object.keys((program && program.days) || {}); }
+  function dayNumber(kind, program) { const i = dayOrder(program).indexOf(kind); return i >= 0 ? i + 1 : null; }
+  function dayTitle(kind, program, short) {
+    if (kind === 'extra') return 'Extra session';
+    const n = dayNumber(kind, program);
+    const inf = program && program.dayInfo && program.dayInfo[kind];
+    if (n && inf) return short ? 'Day ' + n : 'Day ' + n + ' · ' + inf.name;
+    return 'Workout ' + kind;
+  }
+  function dayTone(kind, program) { const inf = program && program.dayInfo && program.dayInfo[kind]; return inf ? inf.tone : (kind === 'B' ? 'lower' : 'upper'); }
+  function dayMark(kind, program) { const n = dayNumber(kind, program); if (n) return String(n); if (kind === 'extra') return '+'; return kind === 'A' || kind === 'B' ? kind : 'P'; }
+
   function variantInfo(id, program) {
     const p = program || {};
     const base = VARIANTS[id] || (p.custom || {})[id] || { name: id.replace(/_/g, ' '), basis: 'kg', inc: 2.5, rest: 105, muscle: '', setup: '' };
@@ -131,14 +171,19 @@
     return out;
   }
 
-  function lastRegular(sessions) {
-    const regs = liveSessions(sessions).filter((s) => s.kind === 'A' || s.kind === 'B');
+  /** Latest regular (non-extra) workout: a day of the current program, or an older A/B session. */
+  function lastRegular(sessions, program) {
+    const order = dayOrder(program || defaultProgram());
+    const regs = liveSessions(sessions).filter((s) => order.indexOf(s.kind) >= 0 || s.kind === 'A' || s.kind === 'B');
     return regs[regs.length - 1] || null;
   }
-  function suggestNext(sessions) {
-    const l = lastRegular(sessions);
-    if (!l) return 'A';
-    return l.kind === 'A' ? 'B' : 'A';
+  /** Next day in the rotation: the day after the last one done; Day 1 when coming from another program. */
+  function suggestNext(sessions, program) {
+    const order = dayOrder(program || defaultProgram());
+    const done = liveSessions(sessions).filter((s) => order.indexOf(s.kind) >= 0);
+    const l = done[done.length - 1];
+    if (!l) return order[0];
+    return order[(order.indexOf(l.kind) + 1) % order.length];
   }
 
   // ---------- progression engine ----------
@@ -345,7 +390,7 @@
       else if (e.logged.length < e.sets) missing.push({ v: e.v, sets: e.sets - e.logged.length, why: e.logged.length ? 'fewer sets' : 'not done' });
     });
     return {
-      id: w.id, kind: w.kind, label: w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind, date: w.date,
+      id: w.id, kind: w.kind, label: dayTitle(w.kind, program), date: w.date,
       startedAt: w.startedAt, finishedAt: Date.now(), programVersion: w.programVersion,
       status: missing.length ? 'partial' : 'complete', plannedSets: planned, doneSets: done, missing,
       source: 'app', exercises
@@ -375,7 +420,7 @@
   }
 
   const api = {
-    VARIANTS, COMPOUND_REST, defaultProgram, variantInfo, allVariantIds, r1, fmtW, fmtReps, isoDate, parseISO, daysBetween,
+    VARIANTS, COMPOUND_REST, defaultProgram, dayOrder, dayNumber, dayTitle, dayTone, dayMark, variantInfo, allVariantIds, r1, fmtW, fmtReps, isoDate, parseISO, daysBetween,
     fmtDate, relDay, clone, liveSessions, loggedSets, countSets, exposures, lastRegular, suggestNext, effReps,
     backoffAmount, lastString, recommend, adjustAfterSet, buildWorkout, makeExercise, refreshRecs, plannedCount, doneCount,
     isExDone, nextPendingIndex, finishWorkout, sessionSummary, bestInHistory, estimateMinutes, uid

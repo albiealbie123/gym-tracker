@@ -54,7 +54,14 @@
 
   const DEFAULT_SETTINGS = { theme: 'auto', restTimer: true, beep: true, keepAwake: true, lastBackupAt: null };
   function settings() { return Object.assign({}, DEFAULT_SETTINGS, store.docs.settings || {}); }
-  function program() { const p = store.docs.program; return p && p.days ? p : L.defaultProgram(); }
+  function program() {
+    const p = store.docs.program;
+    if (p && p.days && p.order) return p;
+    // older A/B program (or none saved): use the current default plan, keeping any machine settings you changed
+    const d = L.defaultProgram();
+    if (p) { d.overrides = p.overrides || {}; d.custom = p.custom || {}; }
+    return d;
+  }
   function sessions() { return Object.keys(store.docs).filter((k) => k.indexOf('s-') === 0).map((k) => store.docs[k]).filter((s) => s && !s.deleted && s.exercises); }
   function active() { const a = store.docs.active; return a && a.workout ? a.workout : null; }
   function saveActive(w) { put('active', { workout: w }); }
@@ -217,9 +224,14 @@
   function rirAt(e, i) { if (!e.rir || !e.rir.length) return null; return e.rir[Math.min(i, e.rir.length - 1)]; }
   function rirLabel(v) { return v == null ? '—' : v >= 4 ? '4+' : String(v); }
   function basisTag(b) { return b && b !== 'kg' ? '<span class="basis">' + esc(b) + '</span>' : ''; }
-  function kindName(s) { return s.label || (s.kind === 'extra' ? 'Extra session' : 'Workout ' + s.kind); }
+  function kindName(s) { return s.label || L.dayTitle(s.kind, program()); }
+  function plateCls(kind) {
+    if (kind === 'extra' || kind === 'legacy') return 'k-' + kind;
+    return L.dayTone(kind, program()) === 'lower' ? 'k-B' : 'k-A';
+  }
   function plateChar(s) {
     if (s.kind === 'A' || s.kind === 'B') return s.kind;
+    const n = L.dayNumber(s.kind, program()); if (n) return String(n);
     if (s.kind === 'extra') return '+';
     if (/Workout A/.test(s.label || '')) return 'A';
     if (/Workout B/.test(s.label || '')) return 'B';
@@ -328,61 +340,98 @@
   const backupName = () => 'gym-tracker-backup-' + L.isoDate() + '.json';
 
   // ---------- Home ----------
+  function viewWeek(prog, ss, today) {
+    const sched = prog.schedule;
+    if (!sched || sched.length !== 7) return '';
+    const t = L.parseISO(today);
+    const monday = new Date(t); monday.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    const cells = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((nm, i) => {
+      const d = new Date(monday); d.setDate(monday.getDate() + i);
+      const iso = L.isoDate(d); const k = sched[d.getDay()];
+      const trained = ss.some((x) => x.date === iso);
+      const cls = (iso === today ? ' today' : '') + (k ? '' : ' off') + (trained ? ' done' : '');
+      const label = nm + ': ' + (k ? L.dayTitle(k, prog) : 'rest') + (trained ? ', trained' : '');
+      return '<div class="wd' + cls + '" aria-label="' + esc(label) + '"><span>' + nm + '</span><b>' + (k ? L.dayNumber(k, prog) : '–') + '</b><i>' + (trained ? '✓' : '') + '</i></div>';
+    }).join('');
+    return '<section><p class="eyebrow" style="margin-bottom:6px">Your week</p><div class="week">' + cells + '</div></section>';
+  }
+
   function viewHome() {
     const ss = sessions(); const prog = program(); const today = L.isoDate();
-    const last = L.lastRegular(ss); const next = L.suggestNext(ss);
+    const order = L.dayOrder(prog);
+    const last = L.lastRegular(ss, prog); const next = L.suggestNext(ss, prog);
+    const sched = prog.schedule || [];
+    const restToday = sched.length === 7 && !sched[L.parseISO(today).getDay()];
+    const doneToday = ss.some((x) => x.date === today && x.kind !== 'extra');
     let lastHtml;
     if (last) {
       const miss = missingSets(last);
-      lastHtml = '<article class="card last"><span class="plate lg k-' + last.kind + '">' + last.kind + '</span><div class="grow">' +
-        '<p class="eyebrow">Last workout</p><p class="big">Workout ' + last.kind + ' · ' + L.fmtDate(last.date) + '</p>' +
+      lastHtml = '<article class="card last"><span class="plate lg ' + plateCls(last.kind) + '">' + plateChar(last) + '</span><div class="grow">' +
+        '<p class="eyebrow">Last workout</p><p class="big">' + esc(kindName(last)) + ' · ' + L.fmtDate(last.date) + '</p>' +
         '<p class="muted">' + cap(L.relDay(last.date, today)) + ' · ' + L.countSets(last) + ' sets' + (miss ? ' · ' + miss + ' planned sets not done' : '') + '</p></div></article>';
     } else if ((store.sync === 'connecting' || (store.db && !store.loadedRemote)) && !ss.length) {
       lastHtml = '<article class="card"><p class="h3">Loading your workouts…</p><p class="muted small">Getting your history from your Claude account.</p></article>';
     } else if (PWA) {
       lastHtml = '<article class="card" style="display:grid;gap:10px"><p class="h3">Bring your workout history</p>' +
-        '<p class="small muted">Open your history file (gym-tracker-history.json) or any backup. Your last workout and all the suggested weights come from it. Or just pick A or B below to start fresh.</p>' +
+        '<p class="small muted">Open your history file (gym-tracker-history.json) or any backup. Your last workout and all the suggested weights come from it. Or just pick a day below to start fresh.</p>' +
         '<label class="btn primary block" for="imp-file-home">Choose history file</label><input id="imp-file-home" type="file" accept=".json,.txt,application/json,text/plain" hidden></article>';
     } else {
-      lastHtml = '<article class="card"><p class="h3">No workouts yet</p><p class="muted small">Pick A or B below to start your first one.</p></article>';
+      lastHtml = '<article class="card"><p class="h3">No workouts yet</p><p class="muted small">Pick a day below to start your first one.</p></article>';
     }
-    const extras = ss.filter((s) => s.kind === 'extra' && last && s.date >= last.date && (s.finishedAt || 0) > (last.finishedAt || 0));
-    const extraNote = extras.length ? '<p class="note">Extra session on ' + L.fmtDate(extras[extras.length - 1].date) + '. Extra sessions don\'t change the A/B order.</p>' : '';
+    const extras = ss.filter((x) => x.kind === 'extra' && last && x.date >= last.date && (x.finishedAt || 0) > (last.finishedAt || 0));
+    const extraNote = extras.length ? '<p class="note">Extra session on ' + L.fmtDate(extras[extras.length - 1].date) + '. Extra sessions don\'t change which day is next.</p>' : '';
 
-    const choice = (k) => {
+    const meta = (k) => {
       const day = prog.days[k] || [];
       const sets = day.reduce((n, e) => n + e.sets, 0);
       const mins = L.estimateMinutes(L.buildWorkout(k, prog, ss, today));
-      const isNext = k === next;
-      return '<button class="choice' + (isNext ? ' is-next' : '') + '" data-act="choose" data-kind="' + k + '">' +
-        '<span class="plate lg k-' + k + '">' + k + '</span><span class="choice-body">' +
-        '<span class="choice-title">Workout ' + k + (isNext ? ' <span class="tag accent">Up next</span>' : '') + '</span>' +
-        '<span class="choice-meta">' + day.length + ' exercises · ' + sets + ' sets · about ' + mins + ' min</span>' +
-        '<span class="choice-list">' + day.map((e) => esc(info(e.v, prog).name)).join(' · ') + '</span></span></button>';
+      return { day, sets, mins };
     };
+    const big = (k) => {
+      const m = meta(k); const inf = (prog.dayInfo || {})[k] || {};
+      return '<button class="choice is-next" data-act="choose" data-kind="' + k + '">' +
+        '<span class="plate lg ' + plateCls(k) + '">' + L.dayNumber(k, prog) + '</span><span class="choice-body">' +
+        '<span class="choice-title">' + esc(L.dayTitle(k, prog, true)) + ' <span class="tag accent">Up next</span></span>' +
+        '<span class="choice-meta">' + esc(inf.name || '') + (inf.focus ? ' · ' + esc(inf.focus) : '') + '</span>' +
+        '<span class="choice-meta muted" style="font-weight:400">' + m.day.length + ' exercises · ' + m.sets + ' sets · about ' + m.mins + ' min</span>' +
+        '<span class="choice-list">' + m.day.map((e) => esc(info(e.v, prog).name)).join(' · ') + '</span></span></button>';
+    };
+    const small = (k) => {
+      const m = meta(k); const inf = (prog.dayInfo || {})[k] || {};
+      return '<button class="item" data-act="choose" data-kind="' + k + '"><span class="plate sm ' + plateCls(k) + '">' + L.dayNumber(k, prog) + '</span>' +
+        '<div class="grow"><div class="t">' + esc(L.dayTitle(k, prog)) + '</div><div class="s">' + esc(inf.focus || '') + ' · ' + m.sets + ' sets · ~' + m.mins + ' min</div></div><span class="chev" aria-hidden="true">›</span></button>';
+    };
+    const ni = order.indexOf(next);
+    const others = order.slice(ni + 1).concat(order.slice(0, ni));
 
     const since7 = L.isoDate(new Date(Date.now() - 6 * 86400000));
-    const recent = ss.filter((s) => s.date >= since7);
+    const recent = ss.filter((x) => x.date >= since7);
     const daysSince = last ? L.daysBetween(last.date, today) : null;
-    const dateStr = L.fmtDate(today, true);
+    let h1, sub = '';
+    if (!last) h1 = 'Let\'s train';
+    else if (doneToday) { h1 = 'Done for today'; sub = 'Next up: ' + L.dayTitle(next, prog) + '.'; }
+    else if (restToday) { h1 = 'Rest day'; sub = 'Today is a planned rest day: recovery is when muscle grows. Next up: ' + L.dayTitle(next, prog) + '.'; }
+    else h1 = L.dayTitle(next, prog, true) + ' is up';
 
     return '<section class="screen home">' +
-      '<div><p class="eyebrow">' + dateStr + '</p><h1 class="h-display">' + (last ? 'Workout ' + next + ' is up' : 'Let\'s train') + '</h1></div>' +
+      '<div><p class="eyebrow">' + L.fmtDate(today, true) + '</p><h1 class="h-display">' + h1 + '</h1>' + (sub ? '<p class="muted" style="margin-top:6px">' + esc(sub) + '</p>' : '') + '</div>' +
+      viewWeek(prog, ss, today) +
       lastHtml + extraNote + installCard() +
       '<h2 class="section-title">Choose today\'s workout</h2>' +
-      '<div class="choices">' + choice('A') + choice('B') + '</div>' +
-      '<button class="linkish" data-act="choose" data-kind="extra">+ Extra session (doesn\'t change A/B order)</button>' +
+      '<div class="choices">' + big(next) + '</div>' +
+      '<div class="list">' + others.map(small).join('') + '</div>' +
+      '<button class="linkish" data-act="choose" data-kind="extra">+ Extra session (doesn\'t change which day is next)</button>' +
       '<div class="stats">' +
       '<div class="stat"><b>' + recent.length + '</b><span>sessions, last 7 days</span></div>' +
-      '<div class="stat"><b>' + recent.reduce((n, s) => n + L.countSets(s), 0) + '</b><span>sets, last 7 days</span></div>' +
-      '<div class="stat"><b>' + (daysSince == null ? '—' : daysSince) + '</b><span>days since last A/B</span></div>' +
+      '<div class="stat"><b>' + recent.reduce((n, x) => n + L.countSets(x), 0) + '</b><span>sets, last 7 days</span></div>' +
+      '<div class="stat"><b>' + (daysSince == null ? '—' : daysSince) + '</b><span>days since last workout</span></div>' +
       '</div></section>';
   }
 
   // ---------- Plan (today's workout before starting) ----------
   function viewPlan() {
     const w = ui.plan; const prog = program();
-    const title = w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind;
+    const title = L.dayTitle(w.kind, prog);
     const items = w.exercises.map((e, i) => {
       const inf = info(e.v, prog);
       const skipped = e.status === 'skipped';
@@ -405,13 +454,13 @@
     const pending = L.nextPendingIndex(w, 0) >= 0;
     return '<section class="screen plan">' +
       '<button class="back" data-act="plan-back">‹ Back</button>' +
-      '<header class="plan-head"><span class="plate lg k-' + w.kind + '">' + (w.kind === 'extra' ? '+' : w.kind) + '</span><div class="grow">' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(w.kind) + '">' + L.dayMark(w.kind, prog) + '</span><div class="grow">' +
       '<h1 class="h-display">' + title + '</h1><p class="muted">Today · ' + L.fmtDate(w.date) + ' · ' + w.exercises.length + ' exercises · ' + L.plannedCount(w) + ' sets' + (w.exercises.length ? ' · about ' + L.estimateMinutes(w) + ' min' : '') + '</p></div></header>' +
-      (w.kind === 'extra' ? '<p class="note">Extra sessions are logged like any other, but they don\'t change whether A or B is next.</p>'
+      (w.kind === 'extra' ? '<p class="note">Extra sessions are logged like any other, but they don\'t change which day is next.</p>'
         : '<p class="muted small">Weights come from your last sessions on the same machine. You can reorder, swap or skip now, or change things as you go.</p>') +
       (items ? '<ol class="plan-list">' + items + '</ol>' : '') +
       '<button class="btn block" data-act="plan-add">+ Add exercise</button>' +
-      '<div class="sticky-cta"><button class="btn primary xl" data-act="start"' + (pending ? '' : ' disabled') + '>Start ' + title + '</button></div>' +
+      '<div class="sticky-cta"><button class="btn primary xl" data-act="start"' + (pending ? '' : ' disabled') + '>Start ' + esc(L.dayTitle(w.kind, prog, true)) + '</button></div>' +
       '</section>';
   }
 
@@ -424,7 +473,7 @@
     }
     const planned = L.plannedCount(w), done = L.doneCount(w);
     const pct = planned ? Math.min(100, Math.round((done / planned) * 100)) : 0;
-    const title = w.kind === 'extra' ? 'Extra session' : 'Workout ' + w.kind;
+    const title = L.dayTitle(w.kind, program());
     const top = '<div><div class="wk-progress" role="progressbar" aria-valuemin="0" aria-valuemax="' + planned + '" aria-valuenow="' + done + '"><i style="width:' + pct + '%"></i></div>' +
       '<div class="wk-meta"><span>' + title + ' · ' + L.fmtDate(w.date) + '</span><span>' + done + ' of ' + planned + ' sets</span></div></div>';
     const rest = '<div id="rest" class="rest" hidden><div class="rest-t"><span id="rest-time">0:00</span><small id="rest-lbl">Rest</small></div>' +
@@ -493,7 +542,7 @@
   }
 
   function allDoneCard(w, planned, done) {
-    return '<article class="setcard alldone"><span class="plate lg k-' + (w.kind === 'B' ? 'B' : 'A') + '">✓</span>' +
+    return '<article class="setcard alldone"><span class="plate lg ' + plateCls(w.kind) + '">✓</span>' +
       '<h2 class="h2">All sets done</h2><p class="muted">' + done + ' of ' + planned + ' planned sets logged. Tap Finish to save this workout.</p>' +
       '<button class="btn primary xl" data-act="finish">Finish workout</button></article>';
   }
@@ -545,7 +594,7 @@
     });
     const miss = (s.missing || []).map((m) => '<li>' + m.sets + ' × ' + esc(info(m.v, prog).name) + ' (' + esc(m.why) + ')</li>').join('');
     return '<section class="screen">' +
-      '<header class="plan-head"><span class="plate lg k-' + s.kind + '">' + plateChar(s) + '</span><div class="grow"><p class="eyebrow">Saved</p><h1 class="h-display">' + esc(kindName(s)) + ' done</h1>' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(s.kind) + '">' + plateChar(s) + '</span><div class="grow"><p class="eyebrow">Saved</p><h1 class="h-display">' + esc(kindName(s)) + ' done</h1>' +
       '<p class="muted">' + L.fmtDate(s.date, true) + (mins != null ? ' · ' + mins + ' min' : '') + '</p></div></header>' +
       '<div class="stats"><div class="stat"><b>' + L.countSets(s) + '</b><span>sets logged</span></div><div class="stat"><b>' + (s.plannedSets || '—') + '</b><span>sets planned</span></div><div class="stat"><b>' + s.exercises.filter((e) => L.loggedSets(e).length).length + '</b><span>exercises</span></div></div>' +
       (ups.length ? '<section class="card"><h2 class="h3">Going up next time</h2><ul class="small" style="margin:8px 0 0;padding-left:20px">' + ups.join('') + '</ul></section>' : '') +
@@ -565,7 +614,7 @@
       const m = d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
       const head = m !== lastMonth ? '<p class="month">' + m + '</p>' : '';
       lastMonth = m;
-      return head + '<button class="item" data-act="open-session" data-id="' + esc(s.id) + '"><span class="plate sm k-' + (s.kind === 'A' || s.kind === 'B' ? s.kind : s.kind) + '">' + plateChar(s) + '</span>' +
+      return head + '<button class="item" data-act="open-session" data-id="' + esc(s.id) + '"><span class="plate sm ' + plateCls(s.kind) + '">' + plateChar(s) + '</span>' +
         '<div class="grow"><div class="t">' + esc(kindName(s)) + '</div><div class="s">' + L.fmtDate(s.date) + ' · ' + L.countSets(s) + ' sets' + (s.imported ? ' · imported' : '') + '</div></div>' + statusTag(s) + '<span class="chev" aria-hidden="true">›</span></button>';
     }).join('');
     return '<section class="screen"><div><h1 class="h-display">History</h1><p class="muted">' + ss.length + ' sessions · ' + total + ' sets since ' + L.fmtDate(ss[ss.length - 1].date) + '</p></div>' +
@@ -594,7 +643,7 @@
     }).join('');
     return '<section class="screen">' +
       '<button class="back" data-act="session-back">‹ History</button>' +
-      '<header class="plan-head"><span class="plate lg k-' + s.kind + '">' + plateChar(s) + '</span><div class="grow"><h1 class="h2">' + esc(kindName(s)) + '</h1>' +
+      '<header class="plan-head"><span class="plate lg ' + plateCls(s.kind) + '">' + plateChar(s) + '</span><div class="grow"><h1 class="h2">' + esc(kindName(s)) + '</h1>' +
       '<p class="muted">' + L.fmtDate(s.date, true) + ' · ' + L.countSets(s) + (s.plannedSets ? ' of ' + s.plannedSets : '') + ' sets' + (mins != null ? ' · ' + mins + ' min' : '') + '</p></div>' + statusTag(s) + '</header>' +
       (s.imported ? '<p class="small muted">Imported from your ChatGPT handover. Actual RIR was never reported for these sets, so it stays empty.</p>' : '') +
       notes +
@@ -617,17 +666,18 @@
           '<div class="s">' + p.sets + ' × ' + p.lo + '–' + p.hi + ' · next ' + loads + ' kg</div></div>' + trendTag(r.trend) + '<span class="chev" aria-hidden="true">›</span></button>';
       }).join('');
       const sets = (prog.days[d] || []).reduce((n, e) => n + e.sets, 0);
-      return '<div class="ex-block-h"><h2 class="section-title">Workout ' + d + ' · ' + sets + ' sets</h2><button class="linkish" data-act="edit-day" data-kind="' + d + '">Edit</button></div><div class="list">' + rows + '</div>';
+      return '<div class="ex-block-h"><h2 class="section-title">' + esc(L.dayTitle(d, prog)) + ' · ' + sets + ' sets</h2><button class="linkish" data-act="edit-day" data-kind="' + d + '">Edit</button></div><div class="list">' + rows + '</div>';
     };
-    const inProg = new Set([].concat(prog.days.A || [], prog.days.B || []).map((p) => p.v));
+    const order = L.dayOrder(prog);
+    const inProg = new Set([].concat.apply([], order.map((d) => prog.days[d] || [])).map((p) => p.v));
     const others = L.allVariantIds(prog).filter((v) => !inProg.has(v)).map((v) => {
       const inf = info(v, prog); const ex = L.exposures(ss, v); const last = ex[ex.length - 1];
       return { v, inf, last };
     }).sort((a, b) => (b.last ? 1 : 0) - (a.last ? 1 : 0) || a.inf.name.localeCompare(b.inf.name));
     const otherRows = others.map((o) => '<button class="item" data-act="open-ex" data-v="' + esc(o.v) + '"><div class="grow"><div class="t">' + esc(o.inf.name) + basisTag(o.inf.basis) + '</div>' +
       '<div class="s">' + (o.last ? 'Last: ' + esc(L.lastString(o.last.sets)) + ' kg · ' + L.fmtDate(o.last.date) : 'No sets logged yet') + (o.inf.legacy ? ' · older split' : '') + '</div></div><span class="chev" aria-hidden="true">›</span></button>').join('');
-    return '<section class="screen"><div><h1 class="h-display">Exercises</h1><p class="muted">Your A/B program with next weights. Tap an exercise for its history and settings.</p></div>' +
-      dayBlock('A') + dayBlock('B') +
+    return '<section class="screen"><div><h1 class="h-display">Exercises</h1><p class="muted">Your ' + order.length + '-day plan with next weights. Tap an exercise for its history and settings.</p></div>' +
+      order.map(dayBlock).join('') +
       '<h2 class="section-title">Alternatives &amp; others</h2><div class="list">' + otherRows + '</div></section>';
   }
 
@@ -656,14 +706,14 @@
     const inf = info(v, prog);
     const exps = L.exposures(ss, v);
     const best = L.bestInHistory(ss, v);
-    const nextCards = ['A', 'B'].filter((d) => (prog.days[d] || []).some((p) => p.v === v)).map((d) => {
+    const nextCards = L.dayOrder(prog).filter((d) => (prog.days[d] || []).some((p) => p.v === v)).map((d) => {
       const p = prog.days[d].find((x) => x.v === v);
       const r = L.recommend(v, p, ss, prog);
-      return '<section class="card" style="display:grid;gap:6px"><div class="ex-block-h"><p class="eyebrow">Next Workout ' + d + '</p>' + trendTag(r.trend) + '</div>' +
+      return '<section class="card" style="display:grid;gap:6px"><div class="ex-block-h"><p class="eyebrow">Next ' + esc(L.dayTitle(d, prog)) + '</p>' + trendTag(r.trend) + '</div>' +
         '<p class="h2">' + r.loads.map((w) => (w == null ? '?' : fmtW(w))).join(' / ') + ' kg</p>' +
         '<p class="small">' + p.sets + ' sets × ' + p.lo + '–' + p.hi + ' reps · RIR ' + p.rir.map(rirLabel).join(' / ') + '</p><p class="why">' + esc(r.summary) + '</p></section>';
     }).join('');
-    const histRows = exps.slice().reverse().map((x) => '<div class="lset"><span class="n">' + L.fmtDate(x.date) + '</span><span class="v">' + esc(L.lastString(x.sets)) + ' kg</span><span class="x">' + (x.kind === 'A' || x.kind === 'B' ? x.kind : x.kind === 'extra' ? 'Extra' : 'Older') + '</span></div>').join('');
+    const histRows = exps.slice().reverse().map((x) => '<div class="lset"><span class="n">' + L.fmtDate(x.date) + '</span><span class="v">' + esc(L.lastString(x.sets)) + ' kg</span><span class="x">' + (x.kind === 'A' || x.kind === 'B' ? 'Old ' + x.kind : x.kind === 'extra' ? 'Extra' : L.dayNumber(x.kind, prog) ? 'Day ' + L.dayNumber(x.kind, prog) : 'Older') + '</span></div>').join('');
     const basisOpts = (BASES.indexOf(inf.basis) < 0 ? [inf.basis].concat(BASES) : BASES).map((b) => '<option' + (b === inf.basis ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
     return '<section class="screen">' +
       '<button class="back" data-act="ex-back">‹ Exercises</button>' +
@@ -699,10 +749,10 @@
     }).join('');
     return '<section class="screen">' +
       '<button class="back" data-act="prog-back">‹ Exercises</button>' +
-      '<div><h1 class="h-display">Edit Workout ' + d + '</h1><p class="muted">' + list.length + ' exercises · ' + total + ' sets. Changes apply from your next workout; past workouts keep exactly what you did.</p></div>' +
+      '<div><h1 class="h-display">Edit ' + esc(L.dayTitle(d, draft)) + '</h1><p class="muted">' + list.length + ' exercises · ' + total + ' sets. Changes apply from your next workout; past workouts keep exactly what you did.</p></div>' +
       items +
       '<button class="btn block" data-act="prog-add">+ Add exercise</button>' +
-      '<div class="sticky-cta"><button class="btn primary xl" data-act="prog-save">Save Workout ' + d + '</button></div></section>';
+      '<div class="sticky-cta"><button class="btn primary xl" data-act="prog-save">Save ' + esc(L.dayTitle(d, draft, true)) + '</button></div></section>';
   }
 
   // ---------- Settings ----------
@@ -806,7 +856,7 @@
 
   function planFor(v) {
     const prog = program();
-    const p = [].concat(prog.days.A || [], prog.days.B || []).find((x) => x.v === v);
+    const p = [].concat.apply([], L.dayOrder(prog).map((d) => prog.days[d] || [])).find((x) => x.v === v);
     return p ? { v, sets: p.sets, lo: p.lo, hi: p.hi, rir: p.rir.slice(), alts: (p.alts || []).slice() } : { v, sets: 2, lo: 10, hi: 15, rir: [2, 1], alts: [] };
   }
 
@@ -1152,7 +1202,7 @@
       syncDraftFromInputs();
       const before = L.clone(program()); delete before.updatedAt; const after = L.clone(ui.progDraft); delete after.updatedAt;
       if (JSON.stringify(before) !== JSON.stringify(after)) {
-        openDialog('<h2 class="h2">Discard changes?</h2><p>Your edits to Workout ' + ui.progDay + ' haven\'t been saved.</p><div class="btn-row"><button class="btn primary" data-act="dlg-close">Keep editing</button><button class="btn danger" data-act="dlg-prog-discard">Discard</button></div>');
+        openDialog('<h2 class="h2">Discard changes?</h2><p>Your edits to ' + esc(L.dayTitle(ui.progDay, ui.progDraft)) + ' haven\'t been saved.</p><div class="btn-row"><button class="btn primary" data-act="dlg-close">Keep editing</button><button class="btn danger" data-act="dlg-prog-discard">Discard</button></div>');
         return;
       }
       ui.progDay = null; ui.progDraft = null; render();
@@ -1266,7 +1316,8 @@
   loadLocal();
   if (PWA) {
     const go = new URLSearchParams(location.search).get('go');
-    if ((go === 'A' || go === 'B') && !active()) A.choose({ dataset: { kind: go } });
+    const goKind = go === 'next' ? L.suggestNext(sessions(), program()) : go;
+    if (goKind && L.dayOrder(program()).indexOf(goKind) >= 0 && !active()) A.choose({ dataset: { kind: goKind } });
     persistStorage().then(() => { if (ui.tab === 'settings' && !ui.dlg) render(); });
     if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => {}); });
   }
